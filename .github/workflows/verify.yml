@@ -1,0 +1,43 @@
+name: Verify and package
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  verify:
+    if: "!contains(github.event.head_commit.message, '[lockfile]')"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Generate reproducible lockfile
+        run: |
+          npm install --package-lock-only
+          if ! git diff --quiet -- package-lock.json; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add package-lock.json
+            git commit -m "build: add npm lockfile [lockfile]"
+            git push
+          fi
+      - name: Install dependencies
+        run: npm ci
+      - name: Run business-rule tests
+        run: npm test
+      - name: Build production bundle
+        run: npm run build
+      - name: Create source submission archive
+        run: |
+          zip -r i242080_SaraanSikandar_B_A#02.zip .             -x "node_modules/*" "dist/*" ".git/*" ".github/*"                ".vercel/*" "*.log"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: beyond-pakistan-submission
+          path: i242080_SaraanSikandar_B_A#02.zip
+          retention-days: 14
